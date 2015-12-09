@@ -24,27 +24,28 @@ from IEDSocketListener import *
 from IEDDMGHelper import *
 from IEDTemplate import *
 
+IEDWorkflowTempDir = u'/tmp'
 
 class IEDWorkflow(NSObject):
     """The workflow contains the logic needed to setup, execute, and report
     the result of the build.
     """
-    
+
     INSTALL_ESD = 1
     SYSTEM_IMAGE = 2
-    
+
     def init(self):
         self = super(IEDWorkflow, self).init()
         if self is None:
             return None
-        
+
         # Helper class for managing disk images.
         self.dmgHelper = IEDDMGHelper.alloc().initWithDelegate_(self)
-        
+
         # Socket for communicating with helper processes.
         self.listener = IEDSocketListener.alloc().init()
         self.listenerPath = self.listener.listenOnSocket_withDelegate_(u"/tmp/se.gu.it.IEDSocketListener", self)
-        
+
         # State for the workflow.
         self._source = None
         self._outputPath = None
@@ -59,25 +60,25 @@ class IEDWorkflow(NSObject):
         self._template = None
         self.tempDir = None
         self.templatePath = None
-        
+
         return self
-    
+
     def initWithDelegate_(self, delegate):
         self = self.init()
         if self is None:
             return None
-        
+
         self.delegate = delegate
-        
+
         return self
-    
+
     # Helper methods.
-    
+
     def cleanup(self):
         LogDebug(u"cleanup")
         self.listener.stopListening()
         self.dmgHelper.detachAll_(None)
-    
+
     def handleDetachResult_(self, result):
         if result[u"success"]:
             try:
@@ -86,33 +87,33 @@ class IEDWorkflow(NSObject):
                 pass
         else:
             self.delegate.detachFailed_details_(result[u"dmg-path"], result[u"error-message"])
-    
+
     def detachInstallerDMGs(self):
         LogDebug(u"Detaching installer DMGs")
         for dmgPath, mountPoint in self.attachedPackageDMGs.iteritems():
             self.dmgHelper.detach_selector_(dmgPath, self.handleDetachResult_)
-    
+
     def alertFailedUnmounts_(self, failedUnmounts):
         if failedUnmounts:
             text = u"\n".join(u"%s: %s" % (dmg, error) for dmg, error in failedUnmounts.iteritems())
             self.delegate.displayAlert_text_(u"Failed to eject dmgs", text)
-    
-    
-    
+
+
+
     # External state of controller.
-    
+
     def hasSource(self):
         return self.installerMountPoint is not None
-    
-    
-    
+
+
+
     # Common delegate methods:
     #
     #     - (void)displayAlert:(NSString *)message text:(NSString *)text
     #     - (void)detachFailed:(NSString *)message details:(NSString *)details
-    
-    
-    
+
+
+
     # Set a new installer source.
     #
     # Delegate methods:
@@ -121,10 +122,10 @@ class IEDWorkflow(NSObject):
     #     - (void)examiningSource:(NSString *)path
     #     - (void)sourceSucceeded:(NSDictionary *)info
     #     - (void)sourceFailed:(NSString *)message text:(NSString *)text
-    
+
     def setSource_(self, path):
         LogDebug(u"setSource:%@", path)
-        
+
         self._source = None
         self.newSourcePath = path
         if self.installerMountPoint:
@@ -132,41 +133,41 @@ class IEDWorkflow(NSObject):
             self.dmgHelper.detachAll_(self.continueSetSource_)
         else:
             self.continueSetSource_({})
-    
+
     def source(self):
         return self._source
-    
+
     def continueSetSource_(self, failedUnmounts):
         LogDebug(u"continueSetSource:%@", failedUnmounts)
-        
+
         self.alertFailedUnmounts_(failedUnmounts)
-        
+
         self.installESDPath = os.path.join(self.newSourcePath, u"Contents/SharedSupport/InstallESD.dmg")
         if not os.path.exists(self.installESDPath):
             self.installESDPath = self.newSourcePath
-        
+
         self.delegate.examiningSource_(self.newSourcePath)
-        
+
         self.installerMountPoint = None
         self.baseSystemMountedFromPath = None
-        self.dmgHelper.attach_selector_(self.installESDPath, self.handleSourceMountResult_)
-    
+        self.dmgHelper.attach_selector_tmpdir_(self.installESDPath, self.handleSourceMountResult_, IEDWorkflowTempDir)
+
     # handleSourceMountResult: may be called twice, once for InstallESD.dmg
     # and once for BaseSystem.dmg.
     def handleSourceMountResult_(self, result):
         LogDebug(u"handleSourceMountResult:%@", result)
-        
+
         if not result[u"success"]:
             self.delegate.sourceFailed_text_(u"Failed to mount %s" % result[u"dmg-path"],
                                              result[u"error-message"])
             return
-        
+
         mountPoint = result[u"mount-point"]
-        
+
         # Update the icon if we find an installer app.
         for path in glob.glob(os.path.join(mountPoint, u"Install*.app")):
             self.delegate.foundSourceForIcon_(path)
-        
+
         # Don't set this again since 10.9 mounts BaseSystem.dmg after InstallESD.dmg.
         if self.installerMountPoint is None:
             self.installerMountPoint = mountPoint
@@ -177,23 +178,23 @@ class IEDWorkflow(NSObject):
             else:
                 self.sourceType = IEDWorkflow.SYSTEM_IMAGE
                 LogDebug(u"sourceType = SYSTEM_IMAGE")
-        
+
         baseSystemPath = os.path.join(mountPoint, u"BaseSystem.dmg")
-        
+
         # If we find a SystemVersion.plist we proceed to the next step.
         if os.path.exists(os.path.join(mountPoint, IEDUtil.VERSIONPLIST_PATH)):
             self.checkVersion_(mountPoint)
         # Otherwise check if there's a BaseSystem.dmg that we need to examine.
         elif os.path.exists(baseSystemPath):
             self.baseSystemMountedFromPath = baseSystemPath
-            self.dmgHelper.attach_selector_(baseSystemPath, self.handleSourceMountResult_)
+            self.dmgHelper.attach_selector_tmpdir_(baseSystemPath, self.handleSourceMountResult_, IEDWorkflowTempDir)
         else:
             self.delegate.sourceFailed_text_(u"Invalid source",
                                              u"Couldn't find system version.")
-    
+
     def checkVersion_(self, mountPoint):
         LogDebug(u"checkVersion:%@", mountPoint)
-        
+
         # We're now examining InstallESD.dmg for 10.7/10.8, BaseSystem.dmg for
         # 10.9, or a system image.
         name, version, build = IEDUtil.readSystemVersion_(mountPoint)
@@ -222,7 +223,7 @@ class IEDWorkflow(NSObject):
         # There's no reason to keep the dmg mounted if it's not an installer.
         if self.sourceType == IEDWorkflow.SYSTEM_IMAGE:
             self.dmgHelper.detachAll_(self.ejectSystemImage_)
-    
+
     def loadImageTemplate_(self, mountPoint):
         LogDebug(u"checkTemplate:%@", mountPoint)
         try:
@@ -235,73 +236,73 @@ class IEDWorkflow(NSObject):
             LogWarning(u"Error reading %@ from image: %@", os.path.basename(path), error)
             return None
         return template
-    
+
     def rejectSource_(self, failedUnmounts):
         self.delegate.sourceFailed_text_(u"Version mismatch",
                                          u"The major version of the installer and the current OS must match.")
         self.alertFailedUnmounts_(failedUnmounts)
-    
+
     def ejectSystemImage_(self, failedUnmounts):
         self.alertFailedUnmounts_(failedUnmounts)
-    
-    
-    
+
+
+
     # Set a list of packages to install after the OS.
-    
+
     def setPackagesToInstall_(self, packages):
         self.additionalPackages = packages
-    
+
     # Path to generated disk image.
-    
+
     def outputPath(self):
         return self._outputPath
-    
+
     def setOutputPath_(self, path):
         self._outputPath = path
-    
+
     # Volume name.
-    
+
     def volumeName(self):
         return self._volumeName
-    
+
     def setVolumeName_(self, name):
         self._volumeName = name
-    
+
     # Username and password.
-    
+
     def authUsername(self):
         return self._authUsername
-    
+
     def setAuthUsername_(self, authUsername):
         self._authUsername = authUsername
-    
+
     def authPassword(self):
         return self._authPassword
-    
+
     def setAuthPassword_(self, authPassword):
         self._authPassword = authPassword
-    
+
     # DMG size.
-    
+
     def volumeSize(self):
         return self._volumeSize
-    
+
     def setVolumeSize_(self, size):
         self._volumeSize = size
-    
+
     # Template to save in image.
-    
+
     def template(self):
         return self._template
-    
+
     def setTemplate_(self, template):
         self._template = template
-    
+
     # Handle temporary directory during workflow.
-    
+
     def createTempDir(self):
         self.tempDir = tempfile.mkdtemp()
-    
+
     def deleteTempDir(self):
         if self.tempDir:
             try:
@@ -312,7 +313,7 @@ class IEDWorkflow(NSObject):
                            unicode(e))
             finally:
                 self.tempDir = None
-    
+
     # Start the workflow.
     #
     # Delegate methods:
@@ -325,21 +326,21 @@ class IEDWorkflow(NSObject):
     #     - (void)buildSucceeded
     #     - (void)buildFailed:(NSString *)message details:(NSString *)details
     #     - (void)buildStopped
-    
+
     def start(self):
         LogNotice(u"Starting build")
         LogNotice(u"Using installer: %@ %@ %@", self.installerName, self.installerVersion, self.installerBuild)
         LogNotice(u"Using output path: %@", self.outputPath())
         self.delegate.buildStartingWithOutput_(self.outputPath())
-        
+
         self.createTempDir()
         LogDebug(u"Created temporary directory at %@", self.tempDir)
-        
+
         if not self.template():
             self.fail_details_(u"Template missing",
                                u"A template for inclusion in the image is required.")
             return
-        
+
         datestamp = datetime.datetime.today().strftime("%Y%m%d")
         self.templatePath = os.path.join(self.tempDir, u"AutoDMG-%s.adtmpl" % datestamp)
         LogDebug(u"Saving template to %@", self.templatePath)
@@ -347,14 +348,14 @@ class IEDWorkflow(NSObject):
         if error:
             self.fail_details_(u"Couldn't save template to tempdir", error)
             return
-        
+
         # The workflow is split into tasks, and each task has one or more
         # phases. Each phase of the installation is given a weight for the
         # progress bar, calculated from the size of the installer package.
         # Phases that don't install packages get an estimated weight.
-        
+
         self.tasks = list()
-        
+
         # Prepare for install.
         self.tasks.append({
             u"method": self.taskPrepare,
@@ -362,7 +363,7 @@ class IEDWorkflow(NSObject):
                 {u"title": u"Preparing", u"weight": 34 * 1024 * 1024},
             ],
         })
-        
+
         # Perform installation.
         installerPhases = [
             {u"title": u"Starting install",    u"weight":       21 * 1024 * 1024},
@@ -387,7 +388,7 @@ class IEDWorkflow(NSObject):
             u"method": self.taskInstall,
             u"phases": installerPhases,
         })
-        
+
         # Finalize image.
         self.tasks.append({
             u"method": self.taskFinalize,
@@ -398,7 +399,7 @@ class IEDWorkflow(NSObject):
                 {u"title": u"Scanning disk image", u"weight":  17 * 1024 * 1024, u"optional": True},
             ],
         })
-        
+
         # Finish build.
         self.tasks.append({
             u"method": self.taskFinish,
@@ -406,7 +407,7 @@ class IEDWorkflow(NSObject):
                 {u"title": u"Finishing", u"weight": 1 * 1024 * 1024},
             ],
         })
-        
+
         # Calculate total weight of all phases.
         self.totalWeight = 0
         for task in self.tasks:
@@ -415,20 +416,20 @@ class IEDWorkflow(NSObject):
                 LogInfo(u"    Phase '%@' with weight %.1f", phase[u"title"], phase[u"weight"] / 1048576.0)
                 self.totalWeight += phase[u"weight"]
         self.delegate.buildSetTotalWeight_(self.totalWeight)
-        
+
         # Start the first task.
         self.progress = 0
         self.currentTask = None
         self.currentPhase = None
         self.nextTask()
-    
-    
-    
+
+
+
     # Task and phase logic.
-    
+
     def nextTask(self):
         LogDebug(u"nextTask, currentTask == %@", self.currentTask)
-        
+
         if self.currentTask:
             if self.currentTask[u"phases"]:
                 for phase in self.currentTask[u"phases"]:
@@ -445,10 +446,10 @@ class IEDWorkflow(NSObject):
             LogNotice(u"Build finished successfully, image saved to %@", self.outputPath())
             self.delegate.buildSucceeded()
             self.stop()
-    
+
     def nextPhase(self):
         LogDebug(u"nextPhase, currentPhase == %@", self.currentPhase)
-        
+
         if self.currentPhase:
             self.progress += self.currentPhase[u"weight"]
             LogInfo(u"Phase %@ with weight %ld finished after %.3f seconds",
@@ -464,12 +465,12 @@ class IEDWorkflow(NSObject):
         LogNotice(u"Starting phase: %@", self.currentPhase[u"title"])
         self.delegate.buildSetPhase_(self.currentPhase[u"title"])
         self.delegate.buildSetProgress_(self.progress)
-    
+
     def fail_details_(self, message, text):
         LogError(u"Workflow failed: %@ (%@)", message, text)
         self.delegate.buildFailed_details_(message, text)
         self.stop()
-    
+
     # Stop is called at the end of a workflow, regardless of if it succeeded
     # or failed.
     def stop(self):
@@ -477,18 +478,18 @@ class IEDWorkflow(NSObject):
         self.deleteTempDir()
         self.detachInstallerDMGs()
         self.delegate.buildStopped()
-    
-    
-    
+
+
+
     # Task: Prepare.
     #
     #    1. Go through the list of packages to install and if they're
     #       contained in disk images, mount them.
     #    2. Generate a list of paths to the packages for the install task.
-    
+
     def taskPrepare(self):
         LogDebug(u"taskPrepare")
-        
+
         # Attach any disk images containing update packages.
         self.attachedPackageDMGs = dict()
         self.numberOfDMGsToAttach = 0
@@ -496,14 +497,14 @@ class IEDWorkflow(NSObject):
             if package.path().endswith(u".dmg"):
                 self.numberOfDMGsToAttach += 1
                 LogInfo(u"Attaching %@", package.path())
-                self.dmgHelper.attach_selector_(package.path(), self.attachPackageDMG_)
+                self.dmgHelper.attach_selector_tmpdir_(package.path(), self.attachPackageDMG_, IEDWorkflowTempDir)
         if self.numberOfDMGsToAttach == 0:
             self.continuePrepare()
-    
+
     # This will be called once for each disk image.
     def attachPackageDMG_(self, result):
         LogDebug(u"attachPackageDMG:%@", result)
-        
+
         if not result[u"success"]:
             self.fail_details_(u"Failed to attach %s" % result[u"dmg-path"],
                                result[u"error-message"])
@@ -514,10 +515,10 @@ class IEDWorkflow(NSObject):
         # for install.
         if len(self.attachedPackageDMGs) == self.numberOfDMGsToAttach:
             self.continuePrepare()
-    
+
     def continuePrepare(self):
         LogDebug(u"continuePrepare")
-        
+
         # Generate a list of packages to install.
         self.packagesToInstall = list()
         if self.sourceType == IEDWorkflow.INSTALL_ESD:
@@ -547,7 +548,7 @@ class IEDWorkflow(NSObject):
                                                u"There are no packages to install")
             self.stop()
             return
-        
+
         # Calculate disk image size requirements.
         sizeRequirement = 0
         LogInfo(u"%d packages to install:", len(self.packagesToInstall))
@@ -562,7 +563,7 @@ class IEDWorkflow(NSObject):
             sizeRequirement += installedSize
         sizeReqStr = IEDUtil.formatBytes_(sizeRequirement)
         LogInfo(u"Workflow requires a %@ disk image", sizeReqStr)
-        
+
         if self.volumeSize() is None:
             # Calculate DMG size. Multiply package requirements by 1.1, round
             # to the nearest GB, and add 23.
@@ -576,21 +577,21 @@ class IEDWorkflow(NSObject):
                 self.stop()
                 return
         LogInfo(u"Using a %d GB disk image", self.volumeSize())
-        
+
         # Task done.
         self.nextTask()
-    
-    
-    
+
+
+
     # Task: Install.
     #
     #    1. Run the installesdtodmg.sh script with administrator privileges.
     #       Progress is sent back via notifications to the socket, which keeps
     #       the phases in sync with the script.
-    
+
     def taskInstall(self):
         LogNotice(u"Install task running")
-        
+
         # The script is wrapped with progresswatcher.py which parses script
         # output and sends it back as notifications to IEDSocketListener.
         args = [
@@ -612,13 +613,13 @@ class IEDWorkflow(NSObject):
         for arg in args:
             LogInfo(u"    '%@'", arg)
         self.performSelectorInBackground_withObject_(self.launchScript_, args)
-    
+
     def launchScript_(self, args):
         LogDebug(u"launchScript:")
-        
+
         def escape(s):
             return s.replace(u"\\", u"\\\\").replace(u'"', u'\\"')
-        
+
         # Generate an AppleScript snippet to launch a shell command with
         # administrator privileges.
         shellscript = u' & " " & '.join(u"quoted form of arg%d" % i for i in range(len(args)))
@@ -635,23 +636,23 @@ class IEDWorkflow(NSObject):
         evt, error = trampoline.executeAndReturnError_(None)
         if evt is None:
             self.performSelectorOnMainThread_withObject_waitUntilDone_(self.handleLaunchScriptError_, error, False)
-    
+
     def handleLaunchScriptError_(self, error):
         if error.get(NSAppleScriptErrorNumber) == -128:
             self.stop()
         else:
             self.fail_details_(u"Build failed", error.get(NSAppleScriptErrorMessage,
                                                           u"Unknown AppleScript error"))
-    
-    
-    
+
+
+
     # Task: Finalize.
     #
     #    1. Scan the image for restore.
-    
+
     def taskFinalize(self):
         LogNotice(u"Finalize task running")
-        
+
         self.delegate.buildSetProgressMessage_(u"Scanning disk image for restore")
         # The script is wrapped with progresswatcher.py which parses script
         # output and sends it back as notifications to IEDSocketListener.
@@ -665,47 +666,47 @@ class IEDWorkflow(NSObject):
         for arg in args:
             LogInfo(u"    '%@'", arg)
         subprocess.Popen(args)
-    
-    
-    
+
+
+
     # Task: Finish
     #
     #    1. Just a dummy task to keep the progress bar from finishing
     #       prematurely.
-    
+
     def taskFinish(self):
         LogNotice(u"Finish")
         self.delegate.buildSetProgress_(self.totalWeight)
         self.nextTask()
-    
+
     # SocketListener delegate methods.
-    
+
     def socketReceivedMessage_(self, msg):
         # The message is a dictionary with "action" as the only required key.
         action = msg[u"action"]
-        
+
         if action == u"update_progress":
             percent = msg[u"percent"]
             currentProgress = self.progress + self.currentPhase[u"weight"] * percent / 100.0
             self.delegate.buildSetProgress_(currentProgress)
-        
+
         elif action == u"update_message":
             if self.lastUpdateMessage != msg[u"message"]:
                 # Only log update messages when they change.
                 LogInfo(u"%@", msg[u"message"])
             self.lastUpdateMessage = msg[u"message"]
             self.delegate.buildSetProgressMessage_(msg[u"message"])
-        
+
         elif action == u"select_phase":
             LogNotice(u"Script phase: %@", msg[u"phase"])
             self.nextPhase()
-        
+
         elif action == u"log_message":
             LogMessage(msg[u"log_level"], msg[u"message"])
-        
+
         elif action == u"notify_failure":
             self.fail_details_(u"Build failed", msg[u"message"])
-        
+
         elif action == u"task_done":
             status = msg[u"termination_status"]
             if status == 0:
@@ -717,6 +718,6 @@ class IEDWorkflow(NSObject):
                 # been preceeded by a "notify_failure" message.
                 if (status < 100) or (status > 199):
                     self.fail_details_(u"Build failed", details)
-        
+
         else:
             self.fail_details_(u"Unknown progress notification", u"Message: %@", msg)

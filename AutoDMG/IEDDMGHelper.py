@@ -17,40 +17,40 @@ from IEDLog import LogDebug, LogInfo, LogNotice, LogWarning, LogError, LogMessag
 
 
 class IEDDMGHelper(NSObject):
-    
+
     def init(self):
         self = super(IEDDMGHelper, self).init()
         if self is None:
             return None
-        
+
         # A dictionary of dmg paths and their respective mount points.
         # NB: we only handle a single mount point per dmg.
         self.dmgs = dict()
-        
+
         return self
-    
+
     def initWithDelegate_(self, delegate):
         self = self.init()
         if self is None:
             return None
-        
+
         self.delegate = delegate
-        
+
         return self
-    
+
     # Send a message to delegate in the main thread.
     def tellDelegate_message_(self, selector, message):
         if self.delegate.respondsToSelector_(selector):
             self.delegate.performSelectorOnMainThread_withObject_waitUntilDone_(selector, message, False)
-    
+
     def hdiutilAttach_(self, args):
         try:
-            dmgPath, selector = args
+            dmgPath, selector, tmpdir = args
             LogDebug(u"Attaching %@", dmgPath)
             p = subprocess.Popen([u"/usr/bin/hdiutil",
                                   u"attach",
                                   dmgPath,
-                                  u"-mountRandom", u"/tmp",
+                                  u"-mountRandom", tmpdir,
                                   u"-nobrowse",
                                   u"-noverify",
                                   u"-plist"],
@@ -90,16 +90,17 @@ class IEDDMGHelper(NSObject):
             self.tellDelegate_message_(selector, {u"success": False,
                                                   u"dmg-path": dmgPath,
                                                   u"error-message": msg})
-    
+
     # Attach a dmg and send a success dictionary.
-    def attach_selector_(self, dmgPath, selector):
+    def attach_selector_tmpdir_(self, dmgPath, selector, tmpdir):
         if dmgPath in self.dmgs:
             self.tellDelegate_message_(selector, {u"success": True,
                                                   u"dmg-path": dmgPath,
-                                                  u"mount-point": self.dmgs[dmgPath]})
+                                                  u"mount-point": self.dmgs[dmgPath],
+                                                  u"tmpdir": tmpdir})
         else:
-            self.performSelectorInBackground_withObject_(self.hdiutilAttach_, [dmgPath, selector])
-    
+            self.performSelectorInBackground_withObject_(self.hdiutilAttach_, [dmgPath, selector, tmpdir])
+
     def hdiutilDetach_(self, args):
         try:
             dmgPath, target, selector = args
@@ -149,7 +150,7 @@ class IEDDMGHelper(NSObject):
                                                                           u"dmg-path": dmgPath,
                                                                           u"error-message": msg},
                                                                          False)
-    
+
     # Detach a dmg and send a success dictionary.
     def detach_selector_(self, dmgPath, selector):
         if dmgPath in self.dmgs:
@@ -158,7 +159,7 @@ class IEDDMGHelper(NSObject):
             self.tellDelegate_message_(selector, {u"success": False,
                                                   u"dmg-path": dmgPath,
                                                   u"error-message": u"%s isn't mounted" % dmgPath})
-    
+
     # Detach all mounted dmgs and send a message with a dictionary of detach
     # failures.
     def detachAll_(self, selector):
@@ -172,7 +173,7 @@ class IEDDMGHelper(NSObject):
         else:
             if self.delegate.respondsToSelector_(selector):
                 self.delegate.performSelector_withObject_(selector, {})
-    
+
     def handleDetachAllResult_(self, result):
         LogDebug(u"handleDetachAllResult:%@", result)
         if not result[u"success"]:

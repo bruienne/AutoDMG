@@ -18,6 +18,7 @@
 		055DBD291822AAA10008DA0E /* IEDUtil.py in Resources */ = {isa = PBXBuildFile; fileRef = 055DBD281822AAA10008DA0E /* IEDUtil.py */; };
 		05C36AD318F406EF002AF318 /* AutoDMG Template.iconset in Resources */ = {isa = PBXBuildFile; fileRef = 05C36AD218F406EF002AF318 /* AutoDMG Template.iconset */; };
 		05FD2081181A5BCE00302827 /* IEDLog.py in Resources */ = {isa = PBXBuildFile; fileRef = 05FD2080181A5BCE00302827 /* IEDLog.py */; };
+		4E8AE9211C18908D008E1151 /* Python.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4E8AE9201C18908D008E1151 /* Python.framework */; };
 		6612F06018164BC500655C8B /* IEDUpdateCache.py in Resources */ = {isa = PBXBuildFile; fileRef = 6612F05F18164BC500655C8B /* IEDUpdateCache.py */; };
 		66158EBE1821480200E43508 /* Exclamation.png in Resources */ = {isa = PBXBuildFile; fileRef = 66158EBC1821480200E43508 /* Exclamation.png */; };
 		66158EBF1821480200E43508 /* Exclamation@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 66158EBD1821480200E43508 /* Exclamation@2x.png */; };
@@ -37,7 +38,6 @@
 		66D24F2618171E680042F227 /* Defaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = 66D24F2518171E680042F227 /* Defaults.plist */; };
 		66E91A9B18B4206C006ABAB7 /* IEDCLIController.py in Resources */ = {isa = PBXBuildFile; fileRef = 66E91A9A18B4206C006ABAB7 /* IEDCLIController.py */; };
 		66EA72CD17EB1586009B8350 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 66EA72CC17EB1586009B8350 /* Cocoa.framework */; };
-		66EA72CF17EB1586009B8350 /* Python.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 66EA72CE17EB1586009B8350 /* Python.framework */; };
 		66EA72D917EB1586009B8350 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 66EA72D717EB1586009B8350 /* InfoPlist.strings */; };
 		66EA72DB17EB1586009B8350 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 66EA72DA17EB1586009B8350 /* main.m */; };
 		66EA72DF17EB1587009B8350 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 66EA72DD17EB1587009B8350 /* Credits.rtf */; };
@@ -63,6 +63,7 @@
 		055DBD281822AAA10008DA0E /* IEDUtil.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = IEDUtil.py; sourceTree = "<group>"; };
 		05C36AD218F406EF002AF318 /* AutoDMG Template.iconset */ = {isa = PBXFileReference; lastKnownFileType = folder.iconset; path = "AutoDMG Template.iconset"; sourceTree = "<group>"; };
 		05FD2080181A5BCE00302827 /* IEDLog.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = IEDLog.py; sourceTree = "<group>"; };
+		4E8AE9201C18908D008E1151 /* Python.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Python.framework; path = ../../../../System/Library/Frameworks/Python.framework; sourceTree = "<group>"; };
 		6612F05F18164BC500655C8B /* IEDUpdateCache.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = IEDUpdateCache.py; sourceTree = "<group>"; };
 		66158EBC1821480200E43508 /* Exclamation.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Exclamation.png; sourceTree = "<group>"; };
 		66158EBD1821480200E43508 /* Exclamation@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Exclamation@2x.png"; sourceTree = "<group>"; };
@@ -83,7 +84,6 @@
 		66E91A9A18B4206C006ABAB7 /* IEDCLIController.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = IEDCLIController.py; sourceTree = "<group>"; };
 		66EA72C917EB1586009B8350 /* AutoDMG.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AutoDMG.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		66EA72CC17EB1586009B8350 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
-		66EA72CE17EB1586009B8350 /* Python.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Python.framework; path = System/Library/Frameworks/Python.framework; sourceTree = SDKROOT; };
 		66EA72D117EB1586009B8350 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		66EA72D217EB1586009B8350 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		66EA72D317EB1586009B8350 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -107,8 +107,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				66EA72CF17EB1586009B8350 /* Python.framework in Frameworks */,
 				66EA72CD17EB1586009B8350 /* Cocoa.framework in Frameworks */,
+				4E8AE9211C18908D008E1151 /* Python.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -193,8 +193,8 @@
 		66EA72CB17EB1586009B8350 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4E8AE9201C18908D008E1151 /* Python.framework */,
 				66EA72CC17EB1586009B8350 /* Cocoa.framework */,
-				66EA72CE17EB1586009B8350 /* Python.framework */,
 				66EA72D017EB1586009B8350 /* Other Frameworks */,
 			);
 			name = Frameworks;
@@ -283,7 +283,7 @@
 				ORGANIZATIONNAME = "University of Gothenburg";
 				TargetAttributes = {
 					66EA72C817EB1585009B8350 = {
-						DevelopmentTeam = 5KQ3D3FG5H;
+						DevelopmentTeam = PG6DD9A3H4;
 					};
 				};
 			};
@@ -513,6 +513,10 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "AutoDMG/AutoDMG-Prefix.pch";
 				INFOPLIST_FILE = "AutoDMG/AutoDMG-Info.plist";
@@ -529,6 +533,10 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "AutoDMG/AutoDMG-Prefix.pch";
 				INFOPLIST_FILE = "AutoDMG/AutoDMG-Info.plist";
