@@ -19,6 +19,9 @@ import traceback
 from Foundation import *
 
 
+MAX_MSG_SIZE = 32768 # See also IEDSL_MAX_MSG_SIZE in IEDSocketListener.
+
+
 class ProgressWatcher(NSObject):
     
     re_installerlog = re.compile(r'^.+? installer\[[0-9a-f:]+\] (<(?P<level>[^>]+)>:)?(?P<message>.*)$')
@@ -27,6 +30,7 @@ class ProgressWatcher(NSObject):
     
     def watchTask_socket_mode_(self, args, sockPath, mode):
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, MAX_MSG_SIZE)
         self.sockPath = sockPath
         
         nc = NSNotificationCenter.defaultCenter()
@@ -80,7 +84,9 @@ class ProgressWatcher(NSObject):
         if data.length():
             progressStr = NSString.alloc().initWithData_encoding_(data, NSUTF8StringEncoding)
             if (not self.asrProgressActive) and (u"\x0a" in progressStr):
-                progressStr = u"".join(progressStr.partition(u"\x0a")[1:])
+                msg, _, rest = progressStr.partition(u"\x0a")
+                progressStr = u"\x0a" + rest
+                self.postNotification_({u"action": u"log_message", u"log_level": 6, u"message": u"asr output: " + msg.rstrip()})
             while progressStr:
                 if progressStr.startswith(u"\x0a"):
                     progressStr = progressStr[1:]
@@ -259,6 +265,7 @@ class ProgressWatcher(NSObject):
                 self.sock.sendto(msg, self.sockPath)
             except socket.error, e:
                 NSLog(u"Socket at %@ failed: %@", self.sockPath, unicode(e))
+                NSLog(u"Failed socket message: %@", msg)
         else:
             NSLog(u"postNotification:%@", msgDict)
     
@@ -316,8 +323,12 @@ def main(argv):
     asrparser.add_argument(u"image", help=u"DMG to scan")
     asrparser.set_defaults(func=imagescan)
     
-    args = p.parse_args([x.decode(u"utf-8") for x in argv[1:]])
-    args.func(args)
+    try:
+        args = p.parse_args([x.decode(u"utf-8") for x in argv[1:]])
+        args.func(args)
+    except:
+        NSLog(u"progresswatcher died with an uncaught exception: %@", traceback.format_exc())
+        return os.EX_SOFTWARE
     
     return 0
     
